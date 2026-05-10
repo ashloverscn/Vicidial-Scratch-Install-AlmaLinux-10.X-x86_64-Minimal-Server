@@ -94,9 +94,11 @@ ln -s /var/lib/asterisk/sounds/* /var/www/html/$sounds_web_directory/
 
 echo -e "\e[0;32m Doing Some BUG FIX \e[0m"
 sleep 2
-# Fix screen permission issue immediately
+rm -rf /run/screen/*
+rm -rf /var/run/screen/*
+mkdir -p /run/screen
 chmod 777 /run/screen
-# Make permanent fix using systemd tmpfiles
+systemd-tmpfiles --create# Make permanent fix using systemd tmpfiles
 mkdir -p /etc/tmpfiles.d
 echo "d /run/screen 1777 root root -" > /etc/tmpfiles.d/screen.conf
 systemd-tmpfiles --create
