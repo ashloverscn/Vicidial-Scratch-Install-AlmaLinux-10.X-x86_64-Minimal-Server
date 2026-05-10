@@ -37,7 +37,7 @@ fi
 
 #: ${JOBS:=$(( $(nproc) + $(nproc) / 2 ))}
 : ${JOBS:=$(nproc)}
-./configure --libdir=/usr/lib64 --with-gsm=internal --enable-opus --enable-srtp --with-ssl --enable-asteriskssl --with-pjproject-bundled --with-jansson-bundled
+./configure --libdir=/usr/lib64 --with-dahdi=/usr/include/dahdi --with-pri=/usr/lib64 --with-srtp=/usr/lib64 --with-jansson-bundled=no --with-lame=/usr/lib64 --with-gsm=internal --enable-opus --enable-srtp --with-ssl --enable-asteriskssl --with-pjproject-bundled
 
 #### asterisk menuselect preconfig
 make menuselect/menuselect menuselect-tree menuselect.makeopts
