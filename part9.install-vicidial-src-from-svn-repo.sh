@@ -94,6 +94,12 @@ ln -s /var/lib/asterisk/sounds/* /var/www/html/$sounds_web_directory/
 
 echo -e "\e[0;32m Doing Some BUG FIX \e[0m"
 sleep 2
+# Fix screen permission issue immediately
+chmod 777 /run/screen
+# Make permanent fix using systemd tmpfiles
+mkdir -p /etc/tmpfiles.d
+echo "d /run/screen 1777 root root -" > /etc/tmpfiles.d/screen.conf
+systemd-tmpfiles --create
 #This is some kind of bug fix to bring back version info in the report panel by carpenox idont know much 
 perl install.pl --no-prompt
 /usr/share/astguiclient/ADMIN_audio_store_sync.pl --upload --debugX
