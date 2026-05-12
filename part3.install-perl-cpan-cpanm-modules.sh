@@ -1,41 +1,87 @@
 #!/bin/bash
 
-set -e
+# =========================================================
+# ULTRA FAST PERL INSTALLER
+# AlmaLinux 10
+# Uses:
+#   - DNF first
+#   - cpm (FASTEST)
+#   - cpanm fallback
+# =========================================================
 
-echo "=============================="
-echo " HYBRID PERL INSTALLER (DNF + CPAN)"
-echo "=============================="
+set +e
 
-# ----------------------------
-# 1. SYSTEM DEPENDENCIES (FAST PATH)
-# ----------------------------
+LOGFILE="/root/fast-perl-install.log"
 
-echo "[1/3] Installing system dependencies via dnf..."
+exec > >(tee -a "$LOGFILE")
+exec 2>&1
 
-dnf groupinstall "Development Tools" -y
+echo "======================================="
+echo " ULTRA FAST PERL INSTALLER"
+echo " AlmaLinux 10"
+echo "======================================="
+
+if [[ $EUID -ne 0 ]]; then
+    echo "Run as root"
+    exit 1
+fi
+
+# ---------------------------------------------------------
+# SYSTEM PREP
+# ---------------------------------------------------------
+
+echo "[1/7] Preparing system..."
+
+dnf clean all
+
+dnf install -y epel-release
+
+dnf groupinstall -y "Development Tools"
 
 dnf install -y \
-perl perl-core perl-devel perl-App-cpanminus \
-gcc gcc-c++ make autoconf automake libtool patch \
-tk tk-devel perl-Tk \
-libX11-devel libXpm-devel libXft-devel libXext-devel \
+perl perl-core perl-devel \
+perl-App-cpanminus \
+gcc gcc-c++ make automake autoconf libtool patch \
+wget curl tar gzip unzip xz \
 openssl-devel zlib-devel expat-devel \
-perl-DBI perl-JSON perl-JSON-XS perl-Text-CSV \
-perl-XML-Parser perl-XML-LibXML perl-Digest-SHA \
-perl-Digest-MD5 perl-Net-SSLeay perl-IO-Socket-SSL \
-perl-Time-HiRes perl-File-Copy-Recursive \
-perl-ExtUtils-MakeMaker perl-CPAN
+readline-devel ncurses-devel \
+libxml2-devel libxslt-devel \
+perl-CPAN perl-DBI perl-JSON perl-JSON-XS \
+perl-XML-Parser perl-XML-LibXML \
+perl-Net-SSLeay perl-IO-Socket-SSL \
+perl-Time-HiRes perl-ExtUtils-MakeMaker \
+perl-Test-Simple perl-Test-Warn \
+perl-Test-Exception \
+tk tk-devel perl-Tk
 
-echo "[OK] DNF base dependencies installed"
+# ---------------------------------------------------------
+# FAST CPAN CLIENTS
+# ---------------------------------------------------------
 
-# ----------------------------
-# 2. MODULE LIST
-# ----------------------------
+echo "[2/7] Installing fast CPAN clients..."
+
+yes | cpan App::cpanminus
+
+cpanm --notest --force App::cpm
+
+# ---------------------------------------------------------
+# ENVIRONMENT
+# ---------------------------------------------------------
+
+echo "[3/7] Configuring environment..."
+
+export PERL_MM_USE_DEFAULT=1
+export PERL_EXTUTILS_AUTOINSTALL="--defaultdeps"
+export NONINTERACTIVE_TESTING=1
+
+export HARNESS_OPTIONS=j8
+export MAKEFLAGS="-j$(nproc)"
+
+# ---------------------------------------------------------
+# MODULE LIST
+# ---------------------------------------------------------
 
 MODULES=(
-App::cpanminus
-App::cpm
-CPAN
 Capture::Tiny
 Command::Runner
 ExtUtils::Config
@@ -72,54 +118,134 @@ Spreadsheet::WriteExcel
 Text::CSV
 XML::Twig
 XML::XPath
-Tk
 Tk::TableMatrix
 String::CRC
 )
 
-# ----------------------------
-# 3. INSTALL LOGIC
-# ----------------------------
+# ---------------------------------------------------------
+# INSTALL LOOP
+# ---------------------------------------------------------
 
-echo "[2/3] Checking modules..."
+echo "[4/7] Installing modules using cpm..."
 
 for m in "${MODULES[@]}"; do
+
+    echo "------------------------------------------------"
+    echo "MODULE: $m"
+
     perl -M"$m" -e 1 >/dev/null 2>&1
 
-    if [ $? -eq 0 ]; then
-        echo "[OK] Already installed: $m"
+    if [[ $? -eq 0 ]]; then
+        echo "[OK] Already installed"
         continue
     fi
 
-    # Try CPAN first
-    echo "[CPAN] Installing: $m"
-    cpanm --notest "$m"
+    # -----------------------------------------------------
+    # FAST METHOD: CPM
+    # -----------------------------------------------------
 
-    if [ $? -ne 0 ]; then
-        echo "[DNF FALLBACK] Trying system package for $m"
+    echo "[CPM] Installing..."
 
-        # convert Perl::Module → perl-Module format (best effort)
-        pkg=$(echo "$m" | tr '[:upper:]' '[:lower:]' | sed 's/::/-/g')
-        dnf install -y "perl-$pkg" || echo "[SKIP] No dnf package: $m"
+    cpm install \
+        -g \
+        --show-build-log-on-failure \
+        --no-test \
+        "$m"
+
+    perl -M"$m" -e 1 >/dev/null 2>&1
+
+    if [[ $? -eq 0 ]]; then
+        echo "[OK] Installed via CPM"
+        continue
     fi
 
-done
+    # -----------------------------------------------------
+    # FALLBACK: CPANM
+    # -----------------------------------------------------
 
-# ----------------------------
-# 4. FINAL VERIFICATION
-# ----------------------------
+    echo "[CPANM FALLBACK] Installing..."
 
-echo "[3/3] Final verification..."
+    cpanm \
+        --notest \
+        --force \
+        --skip-satisfied \
+        "$m"
 
-for m in "${MODULES[@]}"; do
     perl -M"$m" -e 1 >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo "[OK] $m"
+
+    if [[ $? -eq 0 ]]; then
+        echo "[OK] Installed via CPANM"
+        continue
+    fi
+
+    # -----------------------------------------------------
+    # FINAL FALLBACK: DNF
+    # -----------------------------------------------------
+
+    echo "[DNF FALLBACK] Attempting RPM package..."
+
+    pkg=$(echo "$m" | sed 's/::/-/g')
+
+    dnf install -y "perl-$pkg"
+
+    perl -M"$m" -e 1 >/dev/null 2>&1
+
+    if [[ $? -eq 0 ]]; then
+        echo "[OK] Installed via DNF"
     else
         echo "[FAIL] $m"
     fi
+
 done
 
-echo "=============================="
-echo " INSTALLATION COMPLETE"
-echo "=============================="
+# ---------------------------------------------------------
+# REHASH
+# ---------------------------------------------------------
+
+echo "[5/7] Refreshing shell..."
+
+hash -r
+
+# ---------------------------------------------------------
+# FINAL VERIFY
+# ---------------------------------------------------------
+
+echo "[6/7] Final verification..."
+
+FAILED=0
+
+for m in "${MODULES[@]}"; do
+
+    perl -M"$m" -e 1 >/dev/null 2>&1
+
+    if [[ $? -eq 0 ]]; then
+        echo "[OK] $m"
+    else
+        echo "[MISSING] $m"
+        FAILED=1
+    fi
+
+done
+
+# ---------------------------------------------------------
+# DONE
+# ---------------------------------------------------------
+
+echo "[7/7] Completed."
+
+echo ""
+echo "======================================="
+echo " FAST PERL INSTALL COMPLETE"
+echo "======================================="
+
+echo ""
+echo "Log:"
+echo "$LOGFILE"
+
+if [[ $FAILED -eq 1 ]]; then
+    echo ""
+    echo "Some modules still failed."
+else
+    echo ""
+    echo "All modules installed successfully."
+fi
