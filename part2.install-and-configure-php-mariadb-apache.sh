@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo -e "\e[0;32m Install DevTools and epel-release-latest-9 repo and Install RemiRepo PHP7 and powertools \e[0m"
+echo -e "\e[0;32m Install DevTools and epel-release-latest-10 repo and Install RemiRepo PHP7 and powertools \e[0m"
 sleep 2
 
 dnf groupinstall "Development Tools" -y
