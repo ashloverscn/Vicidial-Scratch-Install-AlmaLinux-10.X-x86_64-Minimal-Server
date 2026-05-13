@@ -1,4 +1,4 @@
-# Vicidial-Scratch-Install-AlmaLinux-9.X-x86_64-Minimal-Server
+# Vicidial-Scratch-Install-AlmaLinux-10.X-x86_64-Minimal-Server
 
 # Install VirtualBox and VirtualBox-Addons and grab 
 # my scratch installation virtual machine from here
@@ -36,7 +36,7 @@ cd /usr/src
 
 yum -y install wget git
 
-wget https://github.com/ashloverscn/Vicidial-Scratch-Install-AlmaLinux-9.X-x86_64-Minimal-Server/raw/main/install.sh
+wget https://github.com/ashloverscn/Vicidial-Scratch-Install-AlmaLinux-10.X-x86_64-Minimal-Server/raw/main/install.sh
 
 chmod +x install.sh
 
@@ -66,9 +66,9 @@ cd /usr/src
 
 yum -y install wget git
 
-git clone https://github.com/ashloverscn/Vicidial-Scratch-Install-AlmaLinux-9.X-x86_64-Minimal-Server.git
+git clone https://github.com/ashloverscn/Vicidial-Scratch-Install-AlmaLinux-10.X-x86_64-Minimal-Server.git
 
-cd Vicidial-Scratch-Install-AlmaLinux-9.X-x86_64-Minimal-Server
+cd Vicidial-Scratch-Install-AlmaLinux-10.X-x86_64-Minimal-Server
 
 chmod +x install.sh
 
