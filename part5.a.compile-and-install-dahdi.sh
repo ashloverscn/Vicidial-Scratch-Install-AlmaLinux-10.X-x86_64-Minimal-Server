@@ -29,10 +29,12 @@ then
 
 	# 1. Fix Core DAHDI Sysfs match signatures (Must be const)
 	if [ -f linux/drivers/dahdi/dahdi-sysfs.c ]; then
+		sed -i 's/static int span_match(struct device \*dev, struct device_driver \*driver)/static int span_match(struct device *dev, const struct device_driver *driver)/g' linux/drivers/dahdi/dahdi-sysfs.c
 		sed -i 's/struct device_driver \*driver/const struct device_driver *driver/g' linux/drivers/dahdi/dahdi-sysfs.c
 	fi
 
 	if [ -f linux/drivers/dahdi/dahdi-sysfs-chan.c ]; then
+		sed -i 's/static int chan_match(struct device \*dev, struct device_driver \*driver)/static int chan_match(struct device *dev, const struct device_driver *driver)/g' linux/drivers/dahdi/dahdi-sysfs-chan.c
 		sed -i 's/struct device_driver \*driver/const struct device_driver *driver/g' linux/drivers/dahdi/dahdi-sysfs-chan.c
 	fi
 
@@ -52,6 +54,10 @@ then
 	if [ -f linux/drivers/dahdi/xpp/xbus-sysfs.c ]; then
 		sed -i 's/xpd_driver_register(const struct device_driver/xpd_driver_register(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
 		sed -i 's/xpd_driver_unregister(const struct device_driver/xpd_driver_unregister(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
+		
+		# Revert specific attributes that fail with const
+		sed -i 's/master_span_show(const struct device_driver/master_span_show(struct device_driver/g' linux/drivers/dahdi/dahdi-sysfs.c 2>/dev/null
+		sed -i 's/master_span_store(const struct device_driver/master_span_store(struct device_driver/g' linux/drivers/dahdi/dahdi-sysfs.c 2>/dev/null
 		sed -i 's/sync_show(const struct device_driver/sync_show(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
 		sed -i 's/sync_store(const struct device_driver/sync_store(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
 	fi
