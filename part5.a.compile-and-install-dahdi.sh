@@ -19,13 +19,13 @@ then
 	tar -xvzf dahdi-linux-complete-2.3.0.1+2.3.0.tar.gz
 	cd dahdi-linux-complete-2.3.0.1+2.3.0
 else
-	#wget -O dahdi-linux-complete-$ver+$ver.tar.gz https://downloads.asterisk.org/pub/telephony/dahdi-linux-complete/dahdi-linux-complete-$ver+$ver.tar.gz
-	#tar -xvzf dahdi-linux-complete-$ver+$ver.tar.gz
-	#cd dahdi-linux-complete-$ver+$ver
-	git clone https://github.com/ashloverscn/dahdi-linux-3.4.0.git
-	cd dahdi-linux-3.4.0
-	git clone https://github.com/ashloverscn/dahdi-tools-3.4.0.git
-	mv dahdi-tools-3.4.0 tools
+	wget -O dahdi-linux-complete-$ver+$ver.tar.gz https://downloads.asterisk.org/pub/telephony/dahdi-linux-complete/dahdi-linux-complete-$ver+$ver.tar.gz
+	tar -xvzf dahdi-linux-complete-$ver+$ver.tar.gz
+	cd dahdi-linux-complete-$ver+$ver
+
+	#####################################################################################################################################################
+	
+	#####################################################################################################################################################
 fi
 
 #: ${JOBS:=$(( $(nproc) + $(nproc) / 2 ))}
