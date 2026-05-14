@@ -175,3 +175,4 @@ systemctl restart mariadb
 systemctl restart crond
 systemctl restart asterisk
 /usr/share/astguiclient/ADMIN_keepalive_ALL.pl --debug
+mysqlcheck --auto-repair --optimize --all-databases
