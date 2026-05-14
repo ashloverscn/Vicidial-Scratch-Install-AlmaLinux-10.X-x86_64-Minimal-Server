@@ -25,60 +25,55 @@ then
 	cd dahdi-linux-complete-$ver+$ver
 
 	#####################################################################################################################################################
-	echo "Starting DAHDI patches for Kernel 6.12 compatibility..."
-	
-	# 1. Fix Core DAHDI Sysfs match signatures
-	# We use a check to ensure we don't add 'const' twice
-	if ! grep -q "const struct device_driver \*driver" linux/drivers/dahdi/dahdi-sysfs.c; then
-	    sed -i 's/struct device_driver \*driver/const struct device_driver *driver/g' linux/drivers/dahdi/dahdi-sysfs.c
+	echo "Applying DAHDI source patches for Kernel 6.12 compatibility..."
+
+	# 1. Fix Core DAHDI Sysfs match signatures (Must be const)
+	if [ -f linux/drivers/dahdi/dahdi-sysfs.c ]; then
+		sed -i 's/struct device_driver \*driver/const struct device_driver *driver/g' linux/drivers/dahdi/dahdi-sysfs.c
 	fi
-	
-	if ! grep -q "const struct device_driver \*driver" linux/drivers/dahdi/dahdi-sysfs-chan.c; then
-	    sed -i 's/struct device_driver \*driver/const struct device_driver *driver/g' linux/drivers/dahdi/dahdi-sysfs-chan.c
+
+	if [ -f linux/drivers/dahdi/dahdi-sysfs-chan.c ]; then
+		sed -i 's/struct device_driver \*driver/const struct device_driver *driver/g' linux/drivers/dahdi/dahdi-sysfs-chan.c
 	fi
-	
-	# 2. Fix XPP (Astribank) Bus Match
+
+	# 2. Fix XPP (Astribank) Bus Match (Must be const)
 	if [ -f linux/drivers/dahdi/xpp/xbus-sysfs.c ]; then
-	    # Specifically target match functions
-	    sed -i 's/astribank_match(struct device \*dev, struct device_driver \*driver)/astribank_match(struct device *dev, const struct device_driver *driver)/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
-	    sed -i 's/xpd_match(struct device \*dev, struct device_driver \*driver)/xpd_match(struct device *dev, const struct device_driver *driver)/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
+		sed -i 's/astribank_match(struct device \*dev, struct device_driver \*driver)/astribank_match(struct device *dev, const struct device_driver *driver)/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
+		sed -i 's/xpd_match(struct device \*dev, struct device_driver \*driver)/xpd_match(struct device *dev, const struct device_driver *driver)/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
 	fi
-	
-	# 3. Revert XPP Attributes and Registration to NON-CONST
-	# These must remain non-const to allow modification of the driver object
+
+	# 3. Revert XPP Attributes and Registration to NON-CONST 
+	# (Necessary because these functions modify the driver object)
 	if [ -f linux/drivers/dahdi/xpp/xpd.h ]; then
-	    sed -i 's/xpd_driver_register(const struct device_driver/xpd_driver_register(struct device_driver/g' linux/drivers/dahdi/xpp/xpd.h
-	    sed -i 's/xpd_driver_unregister(const struct device_driver/xpd_driver_unregister(struct device_driver/g' linux/drivers/dahdi/xpp/xpd.h
+		sed -i 's/xpd_driver_register(const struct device_driver/xpd_driver_register(struct device_driver/g' linux/drivers/dahdi/xpp/xpd.h
+		sed -i 's/xpd_driver_unregister(const struct device_driver/xpd_driver_unregister(struct device_driver/g' linux/drivers/dahdi/xpp/xpd.h
 	fi
-	
+
 	if [ -f linux/drivers/dahdi/xpp/xbus-sysfs.c ]; then
-	    sed -i 's/xpd_driver_register(const struct device_driver/xpd_driver_register(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
-	    sed -i 's/xpd_driver_unregister(const struct device_driver/xpd_driver_unregister(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
-	    sed -i 's/sync_show(const struct device_driver/sync_show(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
-	    sed -i 's/sync_store(const struct device_driver/sync_store(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
+		sed -i 's/xpd_driver_register(const struct device_driver/xpd_driver_register(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
+		sed -i 's/xpd_driver_unregister(const struct device_driver/xpd_driver_unregister(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
+		sed -i 's/sync_show(const struct device_driver/sync_show(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
+		sed -i 's/sync_store(const struct device_driver/sync_store(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
 	fi
-	
-	# 4. Remove the vpmadt032 loader (prevents objtool Error 255)
-	sed -i '/dahdi_vpmadt032_loader.o/d' linux/drivers/dahdi/Kbuild
-	
+
+	# 4. Remove the vpmadt032 loader (prevents objtool fatal Error 255)
+	if [ -f linux/drivers/dahdi/Kbuild ]; then
+		sed -i '/dahdi_vpmadt032_loader.o/d' linux/drivers/dahdi/Kbuild
+	fi
+
 	# 5. Final Cleanup: Remove any "const const" caused by overlapping seds
 	find linux/drivers/dahdi/ -type f \( -name "*.c" -o -name "*.h" \) -exec sed -i 's/const const/const/g' {} +
-	
-	echo "Patches applied successfully."
-	echo "Now running build..."
-	
-	# Clean and Build
-	make -C linux clean
-	make all CONFIG_OBJTOOL=n
-	
-	if [ $? -eq 0 ]; then
-	    echo "-------------------------------------------------------"
-	    echo "BUILD SUCCESSFUL!"
-	    echo "Run 'make install' and 'make config' to finish."
-	    echo "-------------------------------------------------------"
-	else
-	    echo "Build failed. Check the logs above for errors."
+
+	# 6. Inject OBJTOOL bypass into the main Makefile
+	# This ensures a standard 'make all' will skip the strict stack validation
+	if [ -f Makefile ]; then
+		if ! grep -q "CONFIG_OBJTOOL=n" Makefile; then
+			sed -i '1i export CONFIG_OBJTOOL=n' Makefile
+			echo "Injected CONFIG_OBJTOOL=n into top-level Makefile."
+		fi
 	fi
+
+	echo "Patches applied. You can now run 'make clean' and 'make all'."
 	#####################################################################################################################################################
 fi
 
