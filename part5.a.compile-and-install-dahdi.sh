@@ -1,18 +1,17 @@
 #!/bin/sh
-#ver=3.1.0
-#oem=1
+
 ver=3.4.0
 oem=0
 
 echo -e "\e[0;32m Install Dahdi Audio_CODEC Driver v$ver \e[0m"
 sleep 2
+
 cd /usr/src
 yum install kernel-devel-$(uname -r) -y
-#rm -rf dahdi-linux-complete*
+
 yum remove dahdi* -y
 yum remove dahdi-tools* -y
-#yum install dahdi* -y
-#yum install dahdi-tools* -y
+
 if [ $oem -eq 1 ]
 then
 	wget http://download.vicidial.com/required-apps/dahdi-linux-complete-2.3.0.1+2.3.0.tar.gz
@@ -24,74 +23,41 @@ then
 	tar -xvzf dahdi-linux-complete-$ver+$ver.tar.gz
 	cd dahdi-linux-complete-$ver+$ver
 
-	#####################################################################################################################################################
 	echo "Applying DAHDI source patches for Kernel 6.12 compatibility..."
 
-	# 1. Fix Core DAHDI Sysfs match signatures (Must be const)
-	if [ -f linux/drivers/dahdi/dahdi-sysfs.c ]; then
-		sed -i 's/static int span_match(struct device \*dev, struct device_driver \*driver)/static int span_match(struct device *dev, const struct device_driver *driver)/g' linux/drivers/dahdi/dahdi-sysfs.c
-		sed -i 's/struct device_driver \*driver/const struct device_driver *driver/g' linux/drivers/dahdi/dahdi-sysfs.c
-	fi
+	sed -i 's/static int span_match(struct device \*dev, struct device_driver \*driver)/static int span_match(struct device *dev, const struct device_driver *driver)/' linux/drivers/dahdi/dahdi-sysfs.c
 
-	if [ -f linux/drivers/dahdi/dahdi-sysfs-chan.c ]; then
-		sed -i 's/static int chan_match(struct device \*dev, struct device_driver \*driver)/static int chan_match(struct device *dev, const struct device_driver *driver)/g' linux/drivers/dahdi/dahdi-sysfs-chan.c
-		sed -i 's/struct device_driver \*driver/const struct device_driver *driver/g' linux/drivers/dahdi/dahdi-sysfs-chan.c
-	fi
+	sed -i 's/static int chan_match(struct device \*dev, struct device_driver \*driver)/static int chan_match(struct device *dev, const struct device_driver *driver)/' linux/drivers/dahdi/dahdi-sysfs-chan.c
 
-	# 2. Fix XPP (Astribank) Bus Match (Must be const)
-	if [ -f linux/drivers/dahdi/xpp/xbus-sysfs.c ]; then
-		sed -i 's/astribank_match(struct device \*dev, struct device_driver \*driver)/astribank_match(struct device *dev, const struct device_driver *driver)/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
-		sed -i 's/xpd_match(struct device \*dev, struct device_driver \*driver)/xpd_match(struct device *dev, const struct device_driver *driver)/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
-	fi
+	sed -i 's/static int astribank_match(struct device \*dev, struct device_driver \*driver)/static int astribank_match(struct device *dev, const struct device_driver *driver)/; s/static int xpd_match(struct device \*dev, struct device_driver \*driver)/static int xpd_match(struct device *dev, const struct device_driver *driver)/' linux/drivers/dahdi/xpp/xbus-sysfs.c
 
-	# 3. Revert XPP Attributes and Registration to NON-CONST 
-	# (Necessary because these functions modify the driver object)
-	if [ -f linux/drivers/dahdi/xpp/xpd.h ]; then
-		sed -i 's/xpd_driver_register(const struct device_driver/xpd_driver_register(struct device_driver/g' linux/drivers/dahdi/xpp/xpd.h
-		sed -i 's/xpd_driver_unregister(const struct device_driver/xpd_driver_unregister(struct device_driver/g' linux/drivers/dahdi/xpp/xpd.h
-	fi
+	sed -i 's/from_timer(wc, timer, timer)/container_of(timer, struct t13x, timer)/' linux/drivers/dahdi/wcte13xp-base.c
 
-	if [ -f linux/drivers/dahdi/xpp/xbus-sysfs.c ]; then
-		sed -i 's/xpd_driver_register(const struct device_driver/xpd_driver_register(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
-		sed -i 's/xpd_driver_unregister(const struct device_driver/xpd_driver_unregister(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
-		
-		# Revert specific attributes that fail with const
-		sed -i 's/master_span_show(const struct device_driver/master_span_show(struct device_driver/g' linux/drivers/dahdi/dahdi-sysfs.c 2>/dev/null
-		sed -i 's/master_span_store(const struct device_driver/master_span_store(struct device_driver/g' linux/drivers/dahdi/dahdi-sysfs.c 2>/dev/null
-		sed -i 's/sync_show(const struct device_driver/sync_show(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
-		sed -i 's/sync_store(const struct device_driver/sync_store(struct device_driver/g' linux/drivers/dahdi/xpp/xbus-sysfs.c
-	fi
+	sed -i 's/from_timer(wc, timer, timer)/container_of(timer, struct t43x, timer)/' linux/drivers/dahdi/wcte43x-base.c
 
-	# 4. Remove the vpmadt032 loader (prevents objtool fatal Error 255)
-	if [ -f linux/drivers/dahdi/Kbuild ]; then
-		sed -i '/dahdi_vpmadt032_loader.o/d' linux/drivers/dahdi/Kbuild
-	fi
+	sed -i 's/from_timer(wc, timer, watchdog)/container_of(timer, struct wcdte, watchdog)/' linux/drivers/dahdi/wctc4xxp/base.c
 
-	# 5. Final Cleanup: Remove any "const const" caused by overlapping seds
-	find linux/drivers/dahdi/ -type f \( -name "*.c" -o -name "*.h" \) -exec sed -i 's/const const/const/g' {} +
+	sed -i 's/from_timer(wc, timer, timer)/container_of(timer, struct t1, timer)/' linux/drivers/dahdi/wcte12xp/base.c
 
-	# 6. Inject OBJTOOL bypass into the main Makefile
-	# This ensures a standard 'make all' will skip the strict stack validation
-	if [ -f Makefile ]; then
-		if ! grep -q "CONFIG_OBJTOOL=n" Makefile; then
-			sed -i '1i export CONFIG_OBJTOOL=n' Makefile
-			echo "Injected CONFIG_OBJTOOL=n into top-level Makefile."
-		fi
-	fi
+	sed -i 's/from_timer(vb, timer, timer)/container_of(timer, struct voicebus, timer)/' linux/drivers/dahdi/voicebus/voicebus.c
 
-	echo "Patches applied. You can now run 'make clean' and 'make all'."
-	#####################################################################################################################################################
+	sed -i 's/from_timer(xbus, timer, command_timer)/container_of(timer, xbus_t, command_timer)/' linux/drivers/dahdi/xpp/xbus-pcm.c
+
+	sed -i '142s/^/## /' linux/drivers/dahdi/Kbuild
+
+	echo "DAHDI Kernel 6.12 patches applied."
 fi
 
-#: ${JOBS:=$(( $(nproc) + $(nproc) / 2 ))}
 : ${JOBS:=$(nproc)}
+
 make -j ${JOBS} all
 make install
 make config
 make install-config
-#yum -y install dahdi-tools-libs
+
 modprobe dahdi
 modprobe dahdi_dummy
+
 dahdi_genconf -v
 dahdi_cfg -v
 
@@ -102,13 +68,14 @@ make install
 make install-config
 
 cd /etc/dahdi
+
 \cp -r system.conf system.conf.bak
 \cp -r system.conf.sample system.conf
 
 echo -e "\e[0;32m Enable dahdi.service in systemctl \e[0m"
 sleep 2
 
-\cp -r /etc/systemd/system/dahdi.service /etc/systemd/system/dahdi.service.bak
+\cp -r /etc/systemd/system/dahdi.service /etc/systemd/system/dahdi.service.bak 2>/dev/null
 rm -rf /etc/systemd/system/dahdi.service
 touch /etc/systemd/system/dahdi.service
 
@@ -133,15 +100,14 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 
-#restart dahdi Service
 systemctl daemon-reload && \
 systemctl disable dahdi.service && \
 systemctl enable dahdi.service && \
 systemctl restart dahdi.service && \
 systemctl status dahdi.service | head -n 18
 
-\cp -r /dahdi.sh /dahdi.sh.bak
+\cp -r /dahdi.sh /dahdi.sh.bak 2>/dev/null
 rm -rf /dahdi.sh
-\cp -r  /usr/src/dahdi.sh /dahdi.sh
+\cp -r /usr/src/dahdi.sh /dahdi.sh
 
-chmod +x /dahdi.sh 
+chmod +x /dahdi.sh
