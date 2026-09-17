@@ -94,6 +94,108 @@ ln -s /var/lib/asterisk/sounds/* /var/www/html/$sounds_web_directory/
 
 echo -e "\e[0;32m Doing Some BUG FIX \e[0m"
 sleep 2
+echo
+echo "============================================================"
+echo "VICIdial SIP / AST_update FIX"
+echo "============================================================"
+
+EXTENSION="gs102"
+BACKUP="/root/vicidial_sip_backup_$(date +%Y%m%d_%H%M%S)"
+
+mkdir -p "$BACKUP"
+
+echo
+echo "===== BACKUP ====="
+cp -a /etc/asterisk/sip.conf "$BACKUP/" 2>/dev/null || true
+cp -a /etc/asterisk/sip-vicidial.conf "$BACKUP/" 2>/dev/null || true
+cp -a /etc/asterisk/pjsip.conf "$BACKUP/" 2>/dev/null || true
+cp -a /etc/asterisk/pjsip-vicidial.conf "$BACKUP/" 2>/dev/null || true
+cp -a /etc/asterisk/pjsip_wizard-vicidial.conf "$BACKUP/" 2>/dev/null || true
+
+echo "Backup: $BACKUP"
+
+echo
+echo "===== CHECK ASTERISK ====="
+systemctl enable asterisk >/dev/null 2>&1
+systemctl restart asterisk
+
+sleep 5
+
+if ! systemctl is-active --quiet asterisk; then
+    echo "ERROR: Asterisk failed to start"
+    exit 1
+fi
+
+echo "Asterisk: OK"
+
+echo
+echo "===== CHECK AMI ====="
+if ! ss -lnt | grep -q ':5038'; then
+    echo "ERROR: AMI 5038 is not listening"
+    exit 1
+fi
+
+echo "AMI 5038: OK"
+
+echo
+echo "===== CHECK SIP MODULE ====="
+if ! asterisk -rx "module show like chan_sip" | grep -q "chan_sip.so"; then
+    echo "ERROR: chan_sip is not loaded"
+    exit 1
+fi
+
+echo "chan_sip: OK"
+
+echo
+echo "===== CHECK GS102 ====="
+asterisk -rx "sip show peer $EXTENSION"
+
+echo
+echo "===== CHECK VICIDIAL PHONE ====="
+mysql asterisk -e "SELECT * FROM phones WHERE extension='$EXTENSION' OR dialplan_number='$EXTENSION'\G" 2>/dev/null
+
+echo
+echo "===== SIP CONFIG SEARCH ====="
+grep -Rni -E "^\[$EXTENSION\]|$EXTENSION" /etc/asterisk/sip*.conf 2>/dev/null || true
+
+echo
+echo "===== RELOAD SIP ====="
+asterisk -rx "sip reload"
+
+sleep 3
+
+echo
+echo "===== GS102 AFTER RELOAD ====="
+asterisk -rx "sip show peer $EXTENSION"
+
+echo
+echo "===== SIP PEERS ====="
+asterisk -rx "sip show peers"
+
+echo
+echo "===== RESTART AST UPDATE ====="
+systemctl restart ast-update.service
+
+sleep 5
+
+echo
+echo "===== AST UPDATE STATUS ====="
+systemctl --no-pager --full status ast-update.service
+
+echo
+echo "===== AST UPDATE DATABASE ====="
+mysql asterisk -e "SELECT * FROM server_updater WHERE server_ip='$serveripadd';"
+
+echo
+echo "===== RECENT AST UPDATE LOG ====="
+journalctl -u ast-update --since "30 seconds ago" --no-pager
+
+echo
+echo "============================================================"
+echo "FIX COMPLETE"
+echo "============================================================"
+echo "Backup: $BACKUP"
+
 rm -rf /run/screen/*
 rm -rf /var/run/screen/*
 mkdir -p /run/screen
