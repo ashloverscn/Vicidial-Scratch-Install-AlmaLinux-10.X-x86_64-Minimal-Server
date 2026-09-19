@@ -29,7 +29,11 @@ sleep 2
 echo -e "\e[0;32m Install Compiler\Build Tools \e[0m"
 sleep 2
 
-dnf -y install --skip-broken php php-mcrypt php-cli php-gd php-curl php-mysql php-mysqli php-ldap php-zip php-fileinfo php-opcache wget unzip nano make patch gcc gcc-c++ subversion php-devel gd-devel readline-devel php-mbstring php-imap php-odbc php-pear php-xml php-xmlrpc curl curl-devel perl-libwww-perl ImageMagick libxml2 libxml2-devel httpd libpcap libpcap-devel libnet ncurses ncurses-devel screen mutt glibc.i686 certbot python3-certbot-apache mod_ssl openssl openssl-devel unixODBC unixODBC-devel libtool-ltdl libtool-ltdl-devel newt newt-devel kernel-devel kernel-headers sqlite-devel libuuid-devel sox sendmail lame lame-devel htop iftop atop mytop perl-File-Which libss7 mariadb-devel mysql-devel libopen chkconfig speex speex-devel postfix dovecot s-nail roundcubemail inxi gmime unbound-libs perl-Term-ReadLine-Gnu ntp sipsak libsrtp libsrtp-devel libedit libedit-devel
+sudo dnf -y install --skip-broken php php-mcrypt php-cli php-gd php-curl php-mysql php-mysqli php-ldap php-zip php-fileinfo php-opcache wget unzip nano make patch gcc gcc-c++ subversion php-devel gd-devel readline-devel php-mbstring php-imap php-odbc php-pear php-xml php-xmlrpc
+
+sudo dnf -y install --skip-broken curl curl-devel perl-libwww-perl ImageMagick libxml2 libxml2-devel httpd libpcap libpcap-devel libnet ncurses ncurses-devel screen mutt glibc.i686 certbot python3-certbot-apache mod_ssl openssl openssl-devel unixODBC unixODBC-devel libtool-ltdl libtool-ltdl-devel
+
+sudo dnf -y install --skip-broken newt newt-devel sqlite-devel libuuid-devel sox sendmail lame lame-devel htop iftop atop mytop perl-File-Which libss7 mariadb-devel mysql-devel libopen chkconfig speex speex-devel postfix dovecot s-nail roundcubemail inxi gmime unbound-libs perl-Term-ReadLine-Gnu ntp sipsak libsrtp libsrtp-devel libedit libedit-devel
 
 yum -y install mariadb-devel libopen*
 
